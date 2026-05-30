@@ -198,23 +198,3 @@ sheet.column_dimensions["C"].width = 30
 sheet.column_dimensions["B"].width = 30
 sheet.freeze_panes = "D2"
 wb.save("netflix_backlog.xlsx")
-server = smtplib.SMTP("smtp.gmail.com",587)
-server.ehlo()
-server.starttls()
-server.login("fakejithu07@gmail.com",os.getenv("gmailapppassword"))
-msg = MIMEMultipart()
-msg["From"] = "fakejithu07@gmail.com"
-msg["To"] = "pravallikameruga2608@gmail.com"
-msg["Subject"] = "Netflix backlog"
-body = MIMEText("oka vela series oka season matramey untey negative values untayi endhukantey error handle chesi ala - pettanu endhukantey inka ekkuva code rayali ee single season series ki endhuku ley ani odhilesay","plain")
-msg.attach(body)
-with open("netflix_backlog.xlsx","rb") as file:
-    part = MIMEBase("application","octet-stream")
-    part.set_payload(file.read())
-    encoders.encode_base64(part)
-    part.add_header("Content-Disposition","attachment;filename=netflix_backlog.xlsx")
-    msg.attach(part)
-server.send_message(msg)
-server.quit()
-
-        
