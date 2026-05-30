@@ -8,7 +8,11 @@ from selenium.webdriver.common.keys import Keys
 import netflix_cookies as nc
 import csv,unicodedata
 import openpyxl as xl,re,time
-
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email import encoders
 import os,csv
 
 #delete files for adding data instead of updating data
@@ -221,3 +225,27 @@ sheet.column_dimensions["C"].width = 30
 sheet.column_dimensions["B"].width = 30
 sheet.freeze_panes = "D2"
 wb.save("netflix_backlog.xlsx")
+
+#mail
+server = smtplib.SMTP("smtp.gmail.com",587)
+server.ehlo()
+server.starttls()
+import os
+password = os.getenv("gmailapppassword").replace(" ", "")
+
+
+server.login("fakejithu07@gmail.com",password)
+msg = MIMEMultipart()
+msg["From"] = "fakejithu07@gmail.com"
+msg["To"] = "jithendrameruga@gmail.com"
+msg["Subject"] = "Netflix backlog"
+body = MIMEText("")
+msg.attach(body)
+with open("netflix_backlog.xlsx","rb") as file:
+    part = MIMEBase("application","octet-stream")
+    part.set_payload(file.read())
+    encoders.encode_base64(part)
+    part.add_header("Content-Disposition","attachment;filename=netflix_backlog.xlsx")
+    msg.attach(part)
+server.send_message(msg)
+server.quit()
