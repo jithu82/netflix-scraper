@@ -5,8 +5,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.common.action_chains import ActionChains as ac
 from selenium.webdriver.common.keys import Keys
-
-import csv,pickle,unicodedata
+import netflix_cookies as nc
+import csv,unicodedata
 import openpyxl as xl,re,time
 
 import os,csv
@@ -23,21 +23,24 @@ open(file_path, "w", encoding="utf-8").close()
 file_path = "netflix_backlog.xlsx"
 if os.path.exists(file_path):
     os.remove(file_path)
-
+browser = None
 try :
+    
     #run browser
     browser = webdriver.Firefox()
     browser.get("https://www.netflix.com")
     wait = WebDriverWait(browser,10)
     action = ac(browser)
     #load cookies
-    with open("netflix_cookies.pkl","rb") as f:
-        cookies = pickle.load(f)
-    for cookie in cookies :
-        if "sameSite" in cookie :
-            cookie.pop("sameSite")
-        browser.add_cookie(cookie)
-    browser.refresh()
+    nc.load_cookies(browser)
+    #check if login is successful
+    profile_element = wait.until(ec.presence_of_all_elements_located((By.CSS_SELECTOR,'li.profile')))
+    if len(profile_element) > 0:
+        pass
+    else:
+        #if login is not successful which means the cookies may have expired so manually login and load cookies 
+        nc.manual_cookies(browser)
+        nc.load_cookies(browser)
     #create a dictionary with profile name as key and profile element as value . later using the name select profile of your choice
     profiles = WebDriverWait(browser,60).until(ec.presence_of_all_elements_located((By.CSS_SELECTOR,'li.profile')))
     profileDict = {}
@@ -182,8 +185,8 @@ try :
         time.sleep(2)
 
 
-except Exception :
-    print("an exception has occured it is %s"%(Exception))
+except Exception as e :
+    print("an exception has occured it is %s"%(e))
 
 finally: 
     browser.quit()

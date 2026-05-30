@@ -6,6 +6,7 @@ films.csv
 netflix_backlog.xlsx
 netflix_cookies.pkl
 series.csv
+future_updates.txt
 # Python byte-code / caches
 __pycache__/
 *.pyc
