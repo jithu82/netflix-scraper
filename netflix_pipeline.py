@@ -133,7 +133,7 @@ try :
                 #if series have multiple seasons then go to each season and find how many episodes are left 
                 if len(dropdown_elem) > 0:
                     for i in range(len(seasons)):
-                        #for the first the drop box is already clicked and not closed previously so we can continue without clicking it 
+                        #for the first iteration the drop box is already clicked and not closed previously so we can continue without clicking it 
                         if i != 0:
                             #click the dropbox 
                             dropbox = wait.until(ec.presence_of_element_located((By.CSS_SELECTOR,"div.episodeSelector-dropdown>div>button"))) 
@@ -147,32 +147,31 @@ try :
                         #so searching progress bar will rasie an error
                         #so we place the code in try block
                         try:
+                            expand_button_elem = browser.find_elements(By.CSS_SELECTOR,'button[aria-label="expand section"]')
+                            #if there are more episodes hidden under the more episodes button we click it and evaluate those episodes
+                            if len(expand_button_elem) > 0:
+                                expand_button = wait.until(ec.presence_of_element_located((By.CSS_SELECTOR,'button[aria-label="expand section"]')))
+                                browser.execute_script("arguments[0].click();",expand_button)
                             progress_elements = wait.until(ec.presence_of_all_elements_located((By.CLASS_NAME,"titleCard-progress")))
                             watched_episodes = []
                             #add all viewed episodes in this season to a list
                             for progress_element in progress_elements:
-                                
                                 progress = float(progress_element.get_attribute("value"))
-                                print("progress of the video ", progress)
                                 watched_episodes.append(progress)
                             #remove video from the list if only half video or less is watched
-                            print("episodes viewed",watched_episodes)
                             for value in watched_episodes:
                                 if value < 0.5 :
                                     watched_episodes.remove(value)
-                            print("episodes viewed half or more",watched_episodes)
                             
                             episodes_left = {}
                             data = []
                             #episodes left contain dictionary with season and episodes left
-                            print(seasons[str(i+1)])
-                            print(len(watched_episodes))
                             episodes_left[f"Season{i+1}"] = seasons[str(i+1)] - len(watched_episodes)
-                            print("episodes left dict" ,episodes_left)
 
                             data.append([title,f"Season {i+1} {' (Current season)' if i+1 == current_season_num else ''}",f"{seasons[str(i+1)]} episodes",f"{episodes_left[f'Season{i+1}']} episodes left"])
                         except Exception as e :
                             data = []
+                            traceback.print_exc()
                             #there are no progress bar which means no episode is watched so the total episodes count = episodes left
                             data.append([title,f"Season {i+1} {' (Current season)' if i+1 == current_season_num else ''}",f"{seasons[str(i+1)]} episodes",f"{seasons[str(i+1)]} episodes left"])
                         #save the present season's data into the file 
@@ -181,6 +180,11 @@ try :
                                 csvwriter.writerows(data)
                 #if series has only one season we dont need to check for drop box and loop mutliple times           
                 else :
+                    expand_button_elem = browser.find_elements(By.CSS_SELECTOR,'button[aria-label="expand section"]')
+                    #if there are more episodes hidden under the more episodes button we click it and evaluate those episodes
+                    if len(expand_button_elem) > 0:
+                        expand_button = wait.until(ec.presence_of_element_located((By.CSS_SELECTOR,'button[aria-label="expand section"]')))
+                        browser.execute_script("arguments[0].click();",expand_button)
                     progress_elements = wait.until(ec.presence_of_all_elements_located((By.CLASS_NAME,"titleCard-progress")))
                     watched_episodes = []
                     #add all viewed episodes to a list
