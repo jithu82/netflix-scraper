@@ -8,6 +8,7 @@ from selenium.webdriver.common.keys import Keys
 import netflix_cookies as nc
 import csv,unicodedata
 import openpyxl as xl,re,time
+import traceback
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -98,7 +99,7 @@ try :
                     current_season = wait.until(ec.presence_of_element_located((By.CLASS_NAME,"allEpisodeSelector-season-label"))).text[0:-1]
                 else :
                     current_season = "1"
-                #season number that is present in the string "Season 3"
+                #season number that is present in the string "Season 3" or for one piece it is "Egghead Arc ①"
                 numbers_in_string = re.findall(r"\d+",current_season)
                 #if number is present fine if not that means the number must be in roman number or anyother format
                 if len(numbers_in_string) > 0:
@@ -106,7 +107,7 @@ try :
                 else :
                     #convert the non ASCII character into number
                     current_season_num = int(unicodedata.numeric(current_season[-1])) if current_season[-1].isnumeric() else -1
-                
+                #we have the current season number
                 seasons = {}
                 #find dropdown box if it exists select the dropdown box and click it 
                 dropdown_elem = browser.find_elements(By.CSS_SELECTOR,"div.episodeSelector-dropdown>div>button")
@@ -118,7 +119,7 @@ try :
                     for element in dropbox_elements:
                         #format is "Season 1 (12 episodes)" so seperate the string 
                         season , episodes = element.text.split("\n")
-                        #if season strung contain non ASCII digit convert it
+                        #if season string contain non ASCII digit convert it
                         if not re.search(r'\d+', season):
                             season = season.strip()
                             season = season[:-1]+ str(int(unicodedata.numeric(season[-1]))) if season[-1].isnumeric() else ' 1'
@@ -126,36 +127,82 @@ try :
                         num , string = episodes.split(" ")
                         seasons[season.strip()[-1]] = int(num[1:])
                 else :
-                    seasons["1"] = -1
-                #find how much time you watched each episode
-                progress_elements = wait.until(ec.presence_of_all_elements_located((By.CLASS_NAME,"titleCard-progress")))
-                watched_episodes = []
-                #add all viewed episodes to a list
-                for progress_element in progress_elements:
-                    progress = float(progress_element.get_attribute("value"))
-                    watched_episodes.append(progress)
-                #remove video from the list if only half video or less is watched
-                for value in watched_episodes:
-                    if value < 0.5 :
-                        watched_episodes.remove(value)
-                #assuming your all the previous seasons are watched create a empty list to track remaining episodes
-                episodes_left = {}
-                i = current_season_num 
-                data = []
-                while(i<=len(seasons)):
-                    #in the current season remove watched episodes from total episodes
-                    if i == current_season_num:
-                        episodes_left[f"Season{i}"] = seasons[str(i)] - len(watched_episodes)
-                        data.append([title,f"Season {i}",episodes_left[f"Season{i}"]])
-                    #in later season add all episodes to dictionary
-                    else:
-                        episodes_left[f"Season{i}"] = seasons[str(i)] 
-                        data.append([title,f"Season {i}",f"{episodes_left[f'Season{i}']} left"])
-                    i +=1
-                #save the data in series.csv file
-                with open("series.csv","a",newline="",encoding="utf-8") as f:
-                    csvwriter = csv.writer(f)
-                    csvwriter.writerows(data)
+                    episodes_in_current_season = wait.until(ec.presence_of_all_elements_located((By.CLASS_NAME,"titleCard-title_index")))
+                    seasons["1"] = int(episodes_in_current_season[-1].text)
+                #now we have a dictionary containing season and number of episodes
+                #if series have multiple seasons then go to each season and find how many episodes are left 
+                if len(dropdown_elem) > 0:
+                    for i in range(len(seasons)):
+                        #for the first the drop box is already clicked and not closed previously so we can continue without clicking it 
+                        if i != 0:
+                            #click the dropbox 
+                            dropbox = wait.until(ec.presence_of_element_located((By.CSS_SELECTOR,"div.episodeSelector-dropdown>div>button"))) 
+                            browser.execute_script("arguments[0].scrollIntoView(true);",dropbox) 
+                            dropbox.click()
+                        #select the season
+                        season_element = wait.until(ec.presence_of_element_located((By.CSS_SELECTOR,f'li[data-index="{i}"]')))
+                        browser.execute_script("arguments[0].scrollIntoView(true);", season_element)
+                        browser.execute_script("arguments[0].click();", season_element)
+                        #for season where not even a single episode is watched there will be no progress bar
+                        #so searching progress bar will rasie an error
+                        #so we place the code in try block
+                        try:
+                            progress_elements = wait.until(ec.presence_of_all_elements_located((By.CLASS_NAME,"titleCard-progress")))
+                            watched_episodes = []
+                            #add all viewed episodes in this season to a list
+                            for progress_element in progress_elements:
+                                
+                                progress = float(progress_element.get_attribute("value"))
+                                print("progress of the video ", progress)
+                                watched_episodes.append(progress)
+                            #remove video from the list if only half video or less is watched
+                            print("episodes viewed",watched_episodes)
+                            for value in watched_episodes:
+                                if value < 0.5 :
+                                    watched_episodes.remove(value)
+                            print("episodes viewed half or more",watched_episodes)
+                            
+                            episodes_left = {}
+                            data = []
+                            #episodes left contain dictionary with season and episodes left
+                            print(seasons[str(i+1)])
+                            print(len(watched_episodes))
+                            episodes_left[f"Season{i+1}"] = seasons[str(i+1)] - len(watched_episodes)
+                            print("episodes left dict" ,episodes_left)
+
+                            data.append([title,f"Season {i+1} {' (Current season)' if i+1 == current_season_num else ''}",f"{seasons[str(i+1)]} episodes",f"{episodes_left[f'Season{i+1}']} episodes left"])
+                        except Exception as e :
+                            data = []
+                            #there are no progress bar which means no episode is watched so the total episodes count = episodes left
+                            data.append([title,f"Season {i+1} {' (Current season)' if i+1 == current_season_num else ''}",f"{seasons[str(i+1)]} episodes",f"{seasons[str(i+1)]} episodes left"])
+                        #save the present season's data into the file 
+                        with open("series.csv","a",newline="",encoding="utf-8") as f:
+                                csvwriter = csv.writer(f)
+                                csvwriter.writerows(data)
+                #if series has only one season we dont need to check for drop box and loop mutliple times           
+                else :
+                    progress_elements = wait.until(ec.presence_of_all_elements_located((By.CLASS_NAME,"titleCard-progress")))
+                    watched_episodes = []
+                    #add all viewed episodes to a list
+                    for progress_element in progress_elements:
+                        progress = float(progress_element.get_attribute("value"))
+                        watched_episodes.append(progress)
+                    #remove video from the list if only half video or less is watched
+                    for value in watched_episodes:
+                        if value < 0.5 :
+                            watched_episodes.remove(value)
+                    episodes_left = {}
+                    data = []
+                    i=1
+                    #episodes left dict contains the season and no of episodes left 
+                    episodes_left[f"Season{i}"] = seasons[str(i)] - len(watched_episodes)
+                    data.append([title,f"Season {i}",f"{seasons[str(i)]} episodes",f'{episodes_left[f"Season{i}"]} episodes left'])
+                    #save to file 
+                    with open("series.csv","a",newline="",encoding="utf-8") as f:
+                        csvwriter = csv.writer(f)
+                        csvwriter.writerows(data)
+
+                
             #the content you are looking at is a film 
             else :
                 #find the progress bar element
@@ -167,7 +214,7 @@ try :
                     time_left = f"{int(listofnumbers[1]) - int(listofnumbers[0])}minutes Left"
                 #if only one element is present that is the time left 
                 else :
-                    time_left = f"{int(listofnumbers[0])}minutes Left"
+                    time_left = f"{int(listofnumbers[0])} minutes Left"
                 data = [title,time_left]
                 #save the data in films.csv file
                 with open("films.csv","a",newline="",encoding="utf-8") as f:
@@ -191,6 +238,7 @@ try :
 
 except Exception as e :
     print("an exception has occured it is %s"%(e))
+    traceback.print_exc()
 
 finally: 
     browser.quit()
@@ -200,8 +248,9 @@ wb = xl.Workbook()
 sheet = wb.active
 sheet.title = "MJ's continue watching"
 sheet["A1"] = "TITLE"
-sheet["B1"] = "Episodes or minutes left"
-sheet.merge_cells("B1:C1")
+sheet["B1"] = "minutes left"
+sheet["C1"] = "total episodes"
+sheet["D1"] = "episodes left"
 
 with open("films.csv","r",encoding="utf-8") as file :
     rows = csv.reader(file)
@@ -210,7 +259,7 @@ with open("films.csv","r",encoding="utf-8") as file :
         minutes_left = row[1]
         sheet["A"+str(j+2)] = movie_title
         sheet["B"+str(j+2)] = minutes_left
-        sheet.merge_cells(f"{'B'+str(j+2)}:{'C'+str(j+2)}")
+        
     j+=2
 with open("series.csv","r",encoding="utf-8") as file :
     rows = csv.reader(file)
@@ -219,11 +268,13 @@ with open("series.csv","r",encoding="utf-8") as file :
         sheet["A"+str(j+1)] = row[0]
         sheet["B"+str(j+1)] = row[1]
         sheet["C"+str(j+1)] = row[2]
+        sheet["D"+str(j+1)] = row[3]
         j+=1
 sheet.column_dimensions["A"].width = 30
 sheet.column_dimensions["C"].width = 30
 sheet.column_dimensions["B"].width = 30
-sheet.freeze_panes = "D2"
+sheet.column_dimensions["D"].width = 30
+sheet.freeze_panes = "E2"
 wb.save("netflix_backlog.xlsx")
 
 #mail
