@@ -1,6 +1,6 @@
 import pickle,time
 from pathlib import Path
-
+from selenium import webdriver
 
 def manual_cookies(browser):
     print("manually login")
@@ -21,3 +21,7 @@ def load_cookies(browser):
             cookie.pop("sameSite")
         browser.add_cookie(cookie)
     browser.refresh()
+
+if __name__ == "__main__":
+    browser = webdriver.Friefox()
+    manual_cookies(browser)
