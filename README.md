@@ -1,4 +1,4 @@
-<img width="1365" height="522" alt="image" src="https://github.com/user-attachments/assets/2270b628-4860-4dee-b293-e08eee04a40f" /># Netflix Continue Watching Scraper
+# Netflix Continue Watching Scraper
 
 A Python automation tool that extracts data from the Netflix "Continue Watching" section, generates an Excel report, and emails the report automatically.
 
